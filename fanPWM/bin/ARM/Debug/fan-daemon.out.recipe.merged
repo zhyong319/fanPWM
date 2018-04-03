@@ -1,0 +1,7 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <LocalLibPath>D:\git\fanPWM\fanPWM\bin\ARM\Debug\fan-daemon.out</LocalLibPath>
+  <ObjPaths>D:\git\fanPWM\fanPWM\obj\ARM\Debug\</ObjPaths>
+  <Configuration>Debug</Configuration>
+  <Platform>ARM</Platform>
+</Project>

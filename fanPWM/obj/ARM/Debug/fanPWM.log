@@ -1,0 +1,12 @@
+﻿  Cleaning remote project directory
+  Validating architecture
+  Validating sources
+  Copying sources remotely to '192.1.1.123'
+  Starting remote build
+  Compiling sources:
+  GPIO.cpp
+  I2CLCD.cpp
+  main.cpp
+  syszz.cpp
+  Linking objects
+  fanPWM.vcxproj -> D:\git\fanPWM\fanPWM\fan-daemon

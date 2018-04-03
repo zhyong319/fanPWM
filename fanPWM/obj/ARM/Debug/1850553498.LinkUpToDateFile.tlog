@@ -1,0 +1,1 @@
+g++ -o "/vs/fanPWM/fan-daemon" -Wl,--no-undefined -Wl,-z,relro -Wl,-z,now -Wl,-z,noexecstack /vs/fanPWM/obj/ARM/Debug/GPIO.o /vs/fanPWM/obj/ARM/Debug/I2CLCD.o /vs/fanPWM/obj/ARM/Debug/main.o /vs/fanPWM/obj/ARM/Debug/syszz.o -lpthread -lwiringPi
