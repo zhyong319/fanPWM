@@ -24,7 +24,7 @@ int GetBootTime(void)
 	int bootValue = 0;
 	char pBuff[200];
 	int fd = open(uptimeFilePath, O_RDONLY);
-	if (fd == -1)
+	if (fd == -1) 
 	{
 		printf("ERROR: Open the /proc/uptime file false!\n");
 		return 0;

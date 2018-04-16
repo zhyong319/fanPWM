@@ -33,11 +33,13 @@ const char loadavgFilePath[] = {"/proc/loadavg"};//CPU负载率文件
 struct SYSDATA
 {
 
-	int bootTimeNow;
-	double cpuload_x;
-	double cpuload_y;
-	int averageValue;
-	int fanPWM;
+	int bootTimeNow; //BOOT TIME
+	double cpuload_x; //temprature zone0
+	double cpuload_y; 
+	int averageValue;//CPU average temprature
+	int fanPWM; //fan pwm value
+	struct tm* pTmNow; //sys real local time
+	int* pFreeCounter; //fan will stop value count;
 };
 
 /**********功能描述：获取本地时间***/

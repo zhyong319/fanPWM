@@ -1,23 +1,24 @@
 #include<stdio.h>
+#include<time.h>
 #include<CharacterLib.h>
 #include<I2CLCD.h>
 #include<GPIO.h>
 #include<syszz.h>
+#include<stdlib.h>
+#include<string.h>
+#include<SysError.h>
 
 #define ZONE0 0
 #define ZONE1 1
 int LCDFD = 0; //保存液晶文件句柄
 
-//int averageValue = 0; //保存CPU温度的平均值
-//int bootTimeNow = 0; //保存系统启动到现在的时间
-//int fanStatus =1; //初始变量	
-//double x, y; //保存CPU负载值
-//int tmp, num1[2], num2[2]; //分别存储CPU负载的整数值（DOUBLE类型分位存储）
-//volatile int fanPWM;
 
-#define WARN_TEMPRETURE 35
-#define FAN_START_WORK_TEMPRETURE 41
+#define WARN_TEMPRETURE 30
+#define PWMLEVEL 30
+#define FAN_START_WORK_TEMPRETURE ((PWMLEVEL/2)+WARN_TEMPRETURE)
+#define LOW_TEMPRATURE_COUNT 36 //36为3分钟，根据刷新频率计算得出
 
+bool DEBUGMODE = 0;
 
 int GetCPUTempreture(void) ///获取CPU的平均温度
 {
@@ -29,36 +30,83 @@ int GetCPUTempreture(void) ///获取CPU的平均温度
 	temprature = (temp0 + temp1) / 2;
 	return temprature;
 }
-int FanProg(int temprature) //计算控制风扇PWM，并返回风扇PWM数据
+int FanProg(SYSDATA* sys) //计算控制风扇PWM，并返回风扇PWM数据
 {	
-	if (temprature < FAN_START_WORK_TEMPRETURE)
+	int temprature = sys->averageValue;
+	static int lowTempratureCounter = 0; //低温时的计数
+	int pwmInt=0;
+	pwmInt = (temprature - WARN_TEMPRETURE) * 2; //让PWM值在0——100之间，对应的温度为20——70度之间
+	if ((temprature < WARN_TEMPRETURE) || (pwmInt < PWMLEVEL))
 	{
-		FanStop();
-		printf("Tempreture less %d C\n ", FAN_START_WORK_TEMPRETURE);
-		return 0; // CPU温度低于X度，风扇停止工作
+		lowTempratureCounter++;
+		if (lowTempratureCounter > LOW_TEMPRATURE_COUNT)
+		{
+			pwmInt = 0;
+			FanStop();
+			lowTempratureCounter = LOW_TEMPRATURE_COUNT+1;
+			
+		}
+		else
+		{
+			pwmInt = PWMLEVEL;//保持最小转速
+		}
 	}
-	else
+	else if (temprature < FAN_START_WORK_TEMPRETURE)
 	{
-		int pwmInt = (temprature - WARN_TEMPRETURE) * 5; //让PWM值在0——100之间，对应的温度为35——55度之间
+		pwmInt = PWMLEVEL;
+		lowTempratureCounter = 0;
+	}
+	else if (temprature >= FAN_START_WORK_TEMPRETURE)
+	{
+		lowTempratureCounter = 0;
 		if (pwmInt >= PWM_MAX_VALUE)
 		{
-			pwmInt = PWM_MAX_VALUE;
+			pwmInt = PWM_MAX_VALUE;		
 		}
-		printf("FAN PWM  = %d\n", pwmInt);
-		return pwmInt;
 	}
-	//WriteSysLog(START);
+	if (DEBUGMODE == true)
+	{
+		printf("fan PWM=%d , lowTempratureCounter=%d , CPU temprature=%d\n", pwmInt, lowTempratureCounter, temprature);
+	}
 
+	sys->pFreeCounter = &lowTempratureCounter; 
+	return pwmInt;
 }
 
 void DisplayInfo(int fd , SYSDATA sys)
 {
-	//////系统运行中
-	OLED_P16x16Ch(LCDFD, 16, 0, F16X16, 0);
+	//////系统时间   Count计数
+	OLED_P16x16Ch(LCDFD, 0, 0, F16X16, 0);
+	OLED_P16x16Ch(LCDFD, 16, 0, F16X16, 1);
+	OLED_P8x16Str(LCDFD, 32, 0, F8X16, 11);
+
+	OLED_P8x16Str(LCDFD, 40, 0, F8X16, (sys.pTmNow->tm_hour) / 10);
+	OLED_P8x16Str(LCDFD, 48, 0, F8X16, (sys.pTmNow->tm_hour) % 10);
+	OLED_P8x16Str(LCDFD, 56, 0, F8X16, 11);
+	OLED_P8x16Str(LCDFD, 64, 0, F8X16, (sys.pTmNow->tm_min) / 10);
+	OLED_P8x16Str(LCDFD, 72, 0, F8X16, (sys.pTmNow->tm_min) % 10);
+
+	if (*sys.pFreeCounter >= LOW_TEMPRATURE_COUNT)
+	{
+		OLED_P8x16Str(LCDFD, 112, 0, F8X16, 20);
+		OLED_P8x16Str(LCDFD, 120, 0, F8X16, 20);
+	}
+	else if (*sys.pFreeCounter < 0)
+	{
+		OLED_P8x16Str(LCDFD, 112, 0, F8X16, 19);
+		OLED_P8x16Str(LCDFD, 120, 0, F8X16, 19);
+	}
+	else
+	{
+		OLED_P8x16Str(LCDFD, 112, 0, F8X16, (*sys.pFreeCounter) / 10);
+		OLED_P8x16Str(LCDFD, 120, 0, F8X16, (*sys.pFreeCounter) % 10);
+	}
+
+/*	OLED_P16x16Ch(LCDFD, 16, 0, F16X16, 0);
 	OLED_P16x16Ch(LCDFD, 36, 0, F16X16, 1);
 	OLED_P16x16Ch(LCDFD, 56, 0, F16X16, 4);
 	OLED_P16x16Ch(LCDFD, 76, 0, F16X16, 2);
-	OLED_P16x16Ch(LCDFD, 96, 0, F16X16, 3);
+	OLED_P16x16Ch(LCDFD, 96, 0, F16X16, 3)*/;
 
 	//已运行时间
 	OLED_P8x16Str(LCDFD, 0, 2, F8X16, (sys.bootTimeNow / DAY) / 10); //XX天
@@ -112,13 +160,14 @@ void DisplayInfo(int fd , SYSDATA sys)
 	OLED_P8x16Str(LCDFD, 80, 6, F8X16, 17); //M
 	OLED_P8x16Str(LCDFD, 88, 6, F8X16, 11); //:
 	
-	if (sys.fanPWM < 30)
+	if ((sys.averageValue < WARN_TEMPRETURE) || ((sys.fanPWM < PWMLEVEL))) //the temprature fall FAN_START_WORK_TEMPRATURE
 	{
 		OLED_P8x16Str(LCDFD, 96, 6, F8X16, 20); //-
 		OLED_P8x16Str(LCDFD, 104, 6, F8X16, 20);//-	
 		OLED_P8x16Str(LCDFD, 112, 6, F8X16, 20); //-
-		OLED_P8x16Str(LCDFD, 120, 6, F8X16, 18); // %	
-		return ;
+		OLED_P8x16Str(LCDFD, 120, 6, F8X16, 20); //-	
+		return;
+	
 	}
 	else if (sys.fanPWM < 100)
 	{
@@ -138,32 +187,102 @@ void DisplayInfo(int fd , SYSDATA sys)
 	}
 
 }
-int main(void)
+tm* GetNowTime()
 {
+	time_t timer;//time_t就是long int 类型
+	struct tm *tblock;
+	timer = time(NULL);
+	tblock = localtime(&timer);
+	return tblock;
+}
+
+bool IsNumber(char *str) //判断字符数组是否是数据
+{
+	char *p = str;
+	while (*p != '\0')
+	{
+		if ((*p < '0') || (*p > '9'))
+			return false;
+		p++;
+	}
+	return true;
+}
+
+int main(int argc, char* argv[])
+{
+
+	for (int ii = 0; ii < argc; ii++)
+	{
+
+		printf("argv[%d] = %s\n", ii, argv[ii]);
+	}
+	
 	SYSDATA sysData;
-	daemon(0, 0);   //将程序设置为daemon模式
-	printf("The SYS mornitor is running...\n");
+
+	int ParameterInt=0; //保存传入的参数INT
+	
+	if (argc > 1) //如果程序带参数
+	{
+		if ( ! IsNumber( argv[1] ) ) //如果参数是字符
+		{
+			if (0 == strcmp("debug" , argv[1] ) ) //如果参数为DEBUG字符
+			{
+				DEBUGMODE = true;
+				if (IsNumber(argv[2])) //如果第三个参数是数据
+				{
+					ParameterInt = atoi(argv[2]);
+				}
+			}
+			else if (0 == strcmp("stop", argv[1])) //如果为stop字符
+			{
+				Init_Pin(); //初始化GPIO   
+				LCDFD = GetLCDFD();//猎取液晶操作句柄
+				OLED_Init(LCDFD);//初始化液晶
+				OLED_CLS(LCDFD); //清屏
+				FanStop();
+				return EXIT_OK;
+			}
+			else
+			{
+				DEBUGMODE = false;
+			}
+		}
+		else if(IsNumber(argv[1])) //如果参数是数据
+		{
+			ParameterInt = atoi(argv[1]); 
+
+		}
+		else //出错
+		{
+			printf("There is has a error ,system exited!\n\n");
+			printf("This app's paremeter can be with DEBUG | 0-100\n");
+			return EXIT_PAREMETER_ERROR;
+		}
+	}
+
+	if (DEBUGMODE == false)
+	{
+		daemon(0, 0);   //将程序设置为daemon模式  后台守护进程模式
+	}
 	Init_Pin(); //初始化GPIO   
 	LCDFD = GetLCDFD();//猎取液晶操作句柄
 	OLED_Init(LCDFD);//初始化液晶
 	LCDCheckSelf(LCDFD);
-
-	Draw_BMP(LCDFD, 0, 0, 127, 7, ubuntu);
-	sleep(1);
-	FanCheckSelf(); //风扇自检
-	OLED_CLS(LCDFD);
+	Draw_BMP(LCDFD, 0, 0, 127, 7, ubuntu); //显示欢迎画面
+	sleep(2);
+	OLED_CLS(LCDFD); //清屏
+	
 	while (1)
-	{	
-		GetCPUloadAVG(&sysData.cpuload_x, &sysData.cpuload_y);
+	{
+		sysData.pTmNow = GetNowTime();//获取当时时间
 		sysData.bootTimeNow = GetBootTime(); //获取系统启动时间
+		GetCPUloadAVG(&sysData.cpuload_x, &sysData.cpuload_y);//计算CPU平均温度
 		sysData.averageValue = GetCPUTempreture(); //获取CPU平均温度
-		sysData.fanPWM = FanProg(sysData.averageValue); //根据CPU温度，获取风扇PWM数据
-		
-		DisplayInfo(LCDFD , sysData); //更新屏显
+		sysData.fanPWM = FanProg(&sysData); //根据CPU温度，获取风扇PWM数据
+		if (ParameterInt > 0) sysData.fanPWM = ParameterInt; //如有参数传入，将计算后的PWM重新赋值，风扇转速恒定
+		DisplayInfo(LCDFD, sysData); //更新屏显
 		FanControl(sysData); //风扇控制
-		
-		sleep(2);
+		sleep(5);
 	}
-	printf("The SYS mornitor was stoped !\n");
-	return 0;
+	return EXIT_OK;
 }

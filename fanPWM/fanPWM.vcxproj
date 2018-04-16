@@ -80,6 +80,7 @@
     <ClInclude Include="CharacterLib.h" />
     <ClInclude Include="GPIO.h" />
     <ClInclude Include="I2CLCD.h" />
+    <ClInclude Include="SysError.h" />
     <ClInclude Include="syszz.h" />
   </ItemGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|ARM'">

@@ -20,6 +20,7 @@ void FanCheckSelf(void)
 {	
 		softPwmWrite(PWM_PIN, 30);
 		sleep(5);
+		FanStop();
 }
 
 
@@ -33,6 +34,10 @@ void FanControl(SYSDATA sys)
 	softPwmWrite(PWM_PIN, pwmValue);
 }
 
+void FanPWM(int pwmValue)
+{
+	softPwmWrite(PWM_PIN , pwmValue);
+}
 
 void FanStop(void)
 {
